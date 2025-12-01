@@ -14,11 +14,11 @@ sudo apt-get install -y nodejs
 ```
 
 ## 2. Upload Files
-Upload all project files (`index.html`, `server.js`, `package.json`) to a folder on your server, e.g., `/var/www/calorie-app`.
+Upload all project files (`index.html`, `server.js`, `package.json`) to a folder on your server, e.g., `/var/www/calorietrack`.
 
 ```powershell
 # From your local machine
-scp index.html server.js package.json user@your-server-ip:~/calorie-app/
+scp index.html server.js package.json user@your-server-ip:~/calorietrack/
 ```
 
 ## 3. Setup Application
@@ -26,16 +26,44 @@ SSH into your server and set up the app.
 
 ```bash
 # Move to directory
-sudo mkdir -p /var/www/calorie-app
-sudo mv ~/calorie-app/* /var/www/calorie-app/
-cd /var/www/calorie-app
+sudo mkdir -p /var/www/calorietrack
+sudo mv ~/calorietrack/* /var/www/calorietrack/
+cd /var/www/calorietrack
 
 # Install dependencies
 sudo npm install
 
-# Fix permissions (so www-data or your user can write to the DB)
-sudo chown -R $USER:www-data /var/www/calorie-app
-sudo chmod -R 775 /var/www/calorie-app
+# CRITICAL: Fix permissions for SQLite database
+# The application needs write access to both the database file AND the directory
+sudo chown -R $USER:www-data /var/www/calorietrack
+sudo chmod -R 775 /var/www/calorietrack
+
+# If database already exists and you're getting SQLITE_READONLY error:
+sudo chmod 664 /var/www/calorietrack/leaderboard.db
+sudo chown $USER:www-data /var/www/calorietrack/leaderboard.db
+
+# Ensure the directory itself is writable (SQLite needs this for temp files)
+sudo chmod 775 /var/www/calorietrack
+```
+
+### Troubleshooting SQLITE_READONLY Error
+If you see `SQLITE_READONLY: attempt to write a readonly database`:
+
+```bash
+# Check current permissions
+ls -la /var/www/calorietrack/
+
+# Fix directory permissions
+sudo chmod 775 /var/www/calorietrack
+
+# Fix database file permissions (if it exists)
+sudo chmod 664 /var/www/calorietrack/leaderboard.db
+
+# Set correct ownership (replace 'youruser' with your actual username)
+sudo chown -R youruser:www-data /var/www/calorietrack
+
+# If running with PM2, ensure PM2 user has access
+sudo chown -R $(whoami):www-data /var/www/calorietrack
 ```
 
 ## 4. Run with PM2 (Process Manager)
@@ -43,7 +71,7 @@ It's best to use `pm2` to keep the app running in the background.
 
 ```bash
 sudo npm install -g pm2
-pm2 start server.js --name "calorie-app"
+pm2 start server.js --name "calorietrack"
 pm2 save
 pm2 startup
 ```

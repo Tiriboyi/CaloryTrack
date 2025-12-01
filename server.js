@@ -3,6 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,12 +14,39 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' })); // Increased limit for base64 images
 app.use(express.static(__dirname)); // Serve static files (index.html)
 
+// Ensure database directory has proper permissions
+function ensureDbPermissions() {
+    const dbDir = path.dirname(DB_PATH);
+    
+    try {
+        // Check if directory is writable
+        fs.accessSync(dbDir, fs.constants.W_OK);
+        
+        // If database exists, check if it's writable
+        if (fs.existsSync(DB_PATH)) {
+            fs.accessSync(DB_PATH, fs.constants.W_OK);
+            console.log('Database file is writable');
+        }
+    } catch (err) {
+        console.error('ERROR: Database directory or file is not writable!');
+        console.error(`Please run: chmod -R 755 ${dbDir}`);
+        console.error(`Or: chmod 664 ${DB_PATH}`);
+        console.error('Full error:', err.message);
+        process.exit(1);
+    }
+}
+
 // Database Setup
 const db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
+        console.error(`Database path: ${DB_PATH}`);
+        console.error('Please check file permissions');
+        process.exit(1);
     } else {
         console.log('Connected to SQLite database.');
+        console.log(`Database location: ${DB_PATH}`);
+        ensureDbPermissions();
         initDb();
     }
 });
