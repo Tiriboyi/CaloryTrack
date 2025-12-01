@@ -53,6 +53,24 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 
 function initDb() {
     db.serialize(() => {
+        // Check if timestamp column exists, if not add it
+        db.all("PRAGMA table_info(logs)", (err, columns) => {
+            const hasTimestamp = columns && columns.some(col => col.name === 'timestamp');
+            
+            if (!hasTimestamp && columns && columns.length > 0) {
+                console.log('Migrating database: adding timestamp column...');
+                db.run("ALTER TABLE logs ADD COLUMN timestamp INTEGER DEFAULT 0", (err) => {
+                    if (err) {
+                        console.error('Migration error:', err.message);
+                    } else {
+                        console.log('Migration complete: timestamp column added');
+                        // Update existing records with timestamp based on date
+                        db.run(`UPDATE logs SET timestamp = strftime('%s', date) * 1000 WHERE timestamp = 0`);
+                    }
+                });
+            }
+        });
+
         // Logs table for current entries (proof deleted after day ends)
         db.run(`CREATE TABLE IF NOT EXISTS logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +78,7 @@ function initDb() {
             calories INTEGER NOT NULL,
             proof TEXT, -- Base64 image (deleted after day)
             date TEXT NOT NULL,
-            timestamp INTEGER NOT NULL -- Unix timestamp for easier date comparisons
+            timestamp INTEGER NOT NULL DEFAULT 0 -- Unix timestamp for easier date comparisons
         )`);
 
         // Lifetime stats table (no proofs, just aggregated data)
@@ -85,7 +103,7 @@ function initDb() {
         });
 
         // Clean up old screenshots on startup
-        cleanupOldScreenshots();
+        setTimeout(() => cleanupOldScreenshots(), 2000); // Delay to ensure migration completes
     });
 }
 
@@ -95,17 +113,61 @@ function cleanupOldScreenshots() {
     today.setHours(0, 0, 0, 0);
     const todayTimestamp = today.getTime();
 
-    db.run(
-        "UPDATE logs SET proof = NULL WHERE timestamp < ? AND proof IS NOT NULL",
-        [todayTimestamp],
-        function(err) {
-            if (err) {
-                console.error('Error cleaning up old screenshots:', err.message);
-            } else if (this.changes > 0) {
-                console.log(`Cleaned up ${this.changes} old screenshots`);
-            }
+    // Check if timestamp column exists before using it
+    db.all("PRAGMA table_info(logs)", (err, columns) => {
+        if (err) {
+            console.error('Error checking table structure:', err.message);
+            return;
         }
-    );
+
+        const hasTimestamp = columns && columns.some(col => col.name === 'timestamp');
+
+        if (hasTimestamp) {
+            // Use timestamp column if available
+            db.run(
+                "UPDATE logs SET proof = NULL WHERE timestamp < ? AND timestamp > 0 AND proof IS NOT NULL",
+                [todayTimestamp],
+                function(err) {
+                    if (err) {
+                        console.error('Error cleaning up old screenshots:', err.message);
+                    } else if (this.changes > 0) {
+                        console.log(`Cleaned up ${this.changes} old screenshots`);
+                    }
+                }
+            );
+        } else {
+            // Fallback: use date string parsing (slower but works with old schema)
+            db.all("SELECT id, date, proof FROM logs WHERE proof IS NOT NULL", (err, rows) => {
+                if (err) {
+                    console.error('Error reading logs:', err.message);
+                    return;
+                }
+
+                const idsToClean = rows
+                    .filter(row => {
+                        const logDate = new Date(row.date);
+                        logDate.setHours(0, 0, 0, 0);
+                        return logDate.getTime() < todayTimestamp;
+                    })
+                    .map(row => row.id);
+
+                if (idsToClean.length > 0) {
+                    const placeholders = idsToClean.map(() => '?').join(',');
+                    db.run(
+                        `UPDATE logs SET proof = NULL WHERE id IN (${placeholders})`,
+                        idsToClean,
+                        function(err) {
+                            if (err) {
+                                console.error('Error cleaning up old screenshots:', err.message);
+                            } else {
+                                console.log(`Cleaned up ${this.changes} old screenshots`);
+                            }
+                        }
+                    );
+                }
+            });
+        }
+    });
 }
 
 // Run cleanup daily at midnight
@@ -182,23 +244,57 @@ app.get('/api/monthly', (req, res) => {
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthTimestamp = firstDayOfMonth.getTime();
 
-    db.all(
-        "SELECT name, SUM(calories) as total_calories, COUNT(*) as entries FROM logs WHERE timestamp >= ? GROUP BY name",
-        [monthTimestamp],
-        (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-
-            const users = rows.map(row => ({
-                name: row.name,
-                totalCalories: row.total_calories,
-                entries: row.entries
-            }));
-
-            res.json({ users, month: now.toLocaleString('default', { month: 'long', year: 'numeric' }) });
+    // Check if timestamp column exists
+    db.all("PRAGMA table_info(logs)", (err, columns) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
         }
-    );
+
+        const hasTimestamp = columns && columns.some(col => col.name === 'timestamp');
+
+        if (hasTimestamp) {
+            // Use timestamp if available
+            db.all(
+                "SELECT name, SUM(calories) as total_calories, COUNT(*) as entries FROM logs WHERE timestamp >= ? GROUP BY name",
+                [monthTimestamp],
+                (err, rows) => {
+                    if (err) {
+                        return res.status(500).json({ error: err.message });
+                    }
+
+                    const users = rows.map(row => ({
+                        name: row.name,
+                        totalCalories: row.total_calories,
+                        entries: row.entries
+                    }));
+
+                    res.json({ users, month: now.toLocaleString('default', { month: 'long', year: 'numeric' }) });
+                }
+            );
+        } else {
+            // Fallback: filter by date string
+            db.all("SELECT name, calories, date FROM logs", (err, rows) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+
+                const usersMap = {};
+                rows.forEach(row => {
+                    const logDate = new Date(row.date);
+                    if (logDate >= firstDayOfMonth) {
+                        if (!usersMap[row.name]) {
+                            usersMap[row.name] = { name: row.name, totalCalories: 0, entries: 0 };
+                        }
+                        usersMap[row.name].totalCalories += row.calories;
+                        usersMap[row.name].entries += 1;
+                    }
+                });
+
+                const users = Object.values(usersMap);
+                res.json({ users, month: now.toLocaleString('default', { month: 'long', year: 'numeric' }) });
+            });
+        }
+    });
 });
 
 // Get lifetime leaderboard
