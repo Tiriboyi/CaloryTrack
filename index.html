@@ -681,8 +681,7 @@
                         body: JSON.stringify({
                             name,
                             calories,
-                            proof: imageBase64,
-                            date: new Date().toLocaleString()
+                            proof: imageBase64
                         })
                     });
 
@@ -770,6 +769,7 @@
                     const badge = this.getBadges(index, sortedUsers.length);
                     const li = document.createElement('li');
                     li.className = `leaderboard-item rank-${index + 1}`;
+                    li.addEventListener('dblclick', () => this.autoUpdateFormOnSelect(user.name, user.totalCalories));
 
                     // Logs HTML
                     const logsHtml = user.logs.map(log => `
@@ -883,6 +883,24 @@
 
             closeModal() {
                 document.getElementById('imageModal').classList.remove('show');
+            },
+
+            autoUpdateFormOnSelect(name, calories){
+                const nameInput = document.getElementById('username');
+                const calsInput = document.getElementById('calories');
+
+                nameInput.value = name;
+                calsInput.value = calories;
+
+                this.entryFormScrollIntoView();
+            },
+
+            entryFormScrollIntoView(){
+                
+                document.querySelector('header').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
             }
         };
 

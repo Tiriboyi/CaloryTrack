@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { CreateErrorResponse } = require('./utils/http');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -319,19 +320,32 @@ app.get('/api/lifetime', (req, res) => {
 
 // Add Entry
 app.post('/api/entry', (req, res) => {
-    const { name, calories, proof, date } = req.body;
+    const { name, calories, proof } = req.body;
     
     if (!name || !calories) {
-        return res.status(400).json({ error: 'Name and calories required' });
+        return res.status(400)
+            .json(CreateErrorResponse('Name and calories required', 400));
     }
 
-    const entryDate = date || new Date().toLocaleString();
+    let caloriesRegex = /^\d{1,5}$/;
+    if(!caloriesRegex.test(calories) && parseInt(calories, 10) > 10000)
+    {
+        return res.status(400)
+            .json(CreateErrorResponse('Please enter valid calories. Valid calories must be a whole number between 1 and 10 0000.'))
+    }
+
+    let nameRegex = /^[a-zA-Z0-9 -_]{1,30}$/;
+    if(typeof name !== "string" || name.length > 30 || !nameRegex.test(name)){
+        return res.status(400)
+            .json(CreateErrorResponse('Please enter a valid name. A valid name may include letters, numbers, underscores, or dashes.', 400))
+    }
+
     const timestamp = Date.now();
 
     // Check if user already has an entry today
     db.get(
-        "SELECT id FROM logs WHERE name = ? AND date(substr(date, 1, 10)) = date(?)",
-        [name, new Date().toISOString().split('T')[0]],
+        "SELECT id FROM logs WHERE name = ? COLLATE NOCASE AND date = date('now') order by date desc",
+        [name],
         (err, row) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
@@ -339,8 +353,8 @@ app.post('/api/entry', (req, res) => {
 
             if (row) {
                 // Update existing entry for today
-                const stmt = db.prepare("UPDATE logs SET calories = ?, proof = ?, date = ?, timestamp = ? WHERE id = ?");
-                stmt.run(calories, proof, entryDate, timestamp, row.id, function(err) {
+                const stmt = db.prepare("UPDATE logs SET calories = ?, proof = ?, date = date('now'), timestamp = ? WHERE id = ?");
+                stmt.run(calories, proof, timestamp, row.id, function(err) {
                     if (err) {
                         return res.status(500).json({ error: err.message });
                     }
@@ -353,8 +367,8 @@ app.post('/api/entry', (req, res) => {
                 stmt.finalize();
             } else {
                 // Insert new entry
-                const stmt = db.prepare("INSERT INTO logs (name, calories, proof, date, timestamp) VALUES (?, ?, ?, ?, ?)");
-                stmt.run(name, calories, proof, entryDate, timestamp, function(err) {
+                const stmt = db.prepare("INSERT INTO logs (name, calories, proof, date, timestamp) VALUES (?, ?, ?, date('now'), ?)");
+                stmt.run(name, calories, proof, timestamp, function(err) {
                     if (err) {
                         return res.status(500).json({ error: err.message });
                     }
