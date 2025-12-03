@@ -5,3 +5,4 @@ export { LeaderboardItem } from './LeaderboardItem';
 export { Tabs } from './Tabs';
 export { ImageModal } from './ImageModal';
 export { CalorieChecker } from './CalorieChecker';
+export { StatsDashboard } from './StatsDashboard';

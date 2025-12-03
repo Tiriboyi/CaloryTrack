@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Header, EntryForm, Leaderboard, Tabs, ImageModal, CalorieChecker } from './components';
+import { Header, EntryForm, Leaderboard, Tabs, ImageModal, CalorieChecker, StatsDashboard } from './components';
 import { useLeaderDuration } from './hooks';
 import { fetchWeeklyData, fetchMonthlyData, fetchLifetimeData, resetData } from './api';
 import { motion } from 'framer-motion';
-import { Crown, RotateCcw, Utensils } from 'lucide-react';
+import { Crown, RotateCcw, Utensils, Activity } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState('weekly');
@@ -12,6 +12,7 @@ function App() {
   const [lifetimeData, setLifetimeData] = useState({ users: [] });
   const [modalImage, setModalImage] = useState(null);
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const entryFormRef = useRef(null);
 
   const leaderInfo = useLeaderDuration(weeklyData.users);
@@ -116,6 +117,17 @@ function App() {
             <Utensils className="w-4 h-4" />
             Check Food Calories
           </motion.button>
+
+          <motion.button
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            onClick={() => setIsStatsOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent-primary/10 text-accent-primary border border-accent-primary/20 hover:bg-accent-primary/20 transition-all text-sm font-medium ml-3"
+          >
+            <Activity className="w-4 h-4" />
+            Insights
+          </motion.button>
         </div>
 
         <EntryForm ref={entryFormRef} onSubmitSuccess={loadAllData} />
@@ -178,6 +190,13 @@ function App() {
         isOpen={isFoodModalOpen}
         onClose={() => setIsFoodModalOpen(false)}
         onApply={handleApplyCalculatorTotal}
+      />
+      <StatsDashboard
+        isOpen={isStatsOpen}
+        onClose={() => setIsStatsOpen(false)}
+        weeklyData={weeklyData}
+        monthlyData={monthlyData}
+        lifetimeData={lifetimeData}
       />
     </>
   );
