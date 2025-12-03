@@ -64,7 +64,7 @@ export const EntryForm = forwardRef(function EntryForm({ onSubmitSuccess }, ref)
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="glass-panel rounded-3xl p-8 mb-12 relative overflow-hidden"
+      className="glass-panel rounded-3xl p-6 md:p-8 mb-8 md:mb-12 relative overflow-hidden"
       ref={formRef}
     >
       <div className="absolute top-0 right-0 w-64 h-64 bg-accent-secondary/10 blur-[80px] -z-10 pointer-events-none" />

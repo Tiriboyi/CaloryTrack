@@ -31,38 +31,38 @@ export function LeaderboardItem({ user, rank, totalUsers, onShowImage, onDoubleC
       className={`mb-3 rounded-xl overflow-hidden transition-all ${getRankStyles(rank)} bg-bg-tertiary/30 backdrop-blur-sm border border-white/5`}
       onDoubleClick={() => onDoubleClick?.(user.name, user.totalCalories)}
     >
-      <div className="p-4 flex items-center gap-4">
-        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-bg-tertiary border border-white/5 shadow-inner">
+      <div className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+        <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-bg-tertiary border border-white/5 shadow-inner">
           {getRankIcon(rank)}
         </div>
 
         <div className="flex-grow min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-bold text-white truncate">{user.name}</h3>
-            {badge && <span className="text-xs px-2 py-0.5 rounded-full bg-accent-primary/20 text-accent-primary border border-accent-primary/20">{badge}</span>}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-0.5 md:mb-1">
+            <h3 className="text-base md:text-lg font-bold text-white truncate max-w-[120px] md:max-w-none">{user.name}</h3>
+            {badge && <span className="text-[10px] md:text-xs px-1.5 py-0.5 rounded-full bg-accent-primary/20 text-accent-primary border border-accent-primary/20 whitespace-nowrap">{badge}</span>}
           </div>
 
           {!showHistory && user.entries !== undefined && (
-            <div className="text-xs text-text-tertiary">{user.entries} entries</div>
+            <div className="text-[10px] md:text-xs text-text-tertiary">{user.entries} entries</div>
           )}
 
           {showHistory && user.logs && (
             <button
-              className="flex items-center gap-1 text-xs text-text-secondary hover:text-accent-primary transition-colors"
+              className="flex items-center gap-1 text-[10px] md:text-xs text-text-secondary hover:text-accent-primary transition-colors"
               onClick={() => setHistoryOpen(!historyOpen)}
             >
               <History className="w-3 h-3" />
-              {historyOpen ? 'Hide History' : `View History (${user.logs.length})`}
+              {historyOpen ? 'Hide' : `History (${user.logs.length})`}
               {historyOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           )}
         </div>
 
-        <div className="text-right">
-          <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+        <div className="text-right flex-shrink-0">
+          <div className="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
             {user.totalCalories.toLocaleString()}
           </div>
-          <div className="text-xs text-text-tertiary font-medium uppercase tracking-wider">kcal</div>
+          <div className="text-[10px] md:text-xs text-text-tertiary font-medium uppercase tracking-wider">kcal</div>
         </div>
       </div>
 

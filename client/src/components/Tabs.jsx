@@ -15,7 +15,7 @@ export function Tabs({ activeTab, onTabChange }) {
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={`
-              relative px-6 py-2.5 rounded-full text-sm font-medium transition-colors z-0
+              relative px-4 py-2 md:px-6 md:py-2.5 rounded-full text-xs md:text-sm font-medium transition-colors z-0
               ${activeTab === tab.id ? 'text-white' : 'text-text-secondary hover:text-white'}
             `}
           >
