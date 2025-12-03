@@ -5,7 +5,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "client:install": "cd client && npm install",
+    "client:dev": "cd client && npm run dev",
+    "client:build": "cd client && npm run build",
+    "dev:all": "concurrently \"npm run dev\" \"npm run client:dev\""
   },
   "dependencies": {
     "body-parser": "^1.20.2",
@@ -14,6 +18,7 @@
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "nodemon": "^3.1.11"
   }
 }
