@@ -1,63 +1,112 @@
 import { useState } from 'react';
 import { getBadges } from '../utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp, History, Trophy, Medal } from 'lucide-react';
 
 export function LeaderboardItem({ user, rank, totalUsers, onShowImage, onDoubleClick, showHistory = true }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const badge = getBadges(rank, totalUsers);
-  const badgeEmoji = badge ? badge.split(' ')[0] : '';
-  const badgeText = badge ? badge.substring(2) : '';
+
+  // Custom Rank Icons
+  const getRankIcon = (r) => {
+    if (r === 0) return <Trophy className="w-6 h-6 text-yellow-400" fill="currentColor" />;
+    if (r === 1) return <Medal className="w-6 h-6 text-gray-300" fill="currentColor" />;
+    if (r === 2) return <Medal className="w-6 h-6 text-amber-600" fill="currentColor" />;
+    return <span className="text-lg font-bold text-text-tertiary">#{r + 1}</span>;
+  };
+
+  const getRankStyles = (r) => {
+    if (r === 0) return "bg-gradient-to-r from-yellow-500/10 to-transparent border-l-4 border-yellow-500";
+    if (r === 1) return "bg-gradient-to-r from-gray-400/10 to-transparent border-l-4 border-gray-400";
+    if (r === 2) return "bg-gradient-to-r from-amber-600/10 to-transparent border-l-4 border-amber-600";
+    return "border-l-4 border-transparent hover:bg-white/5";
+  };
 
   return (
-    <li
-      className={`flex items-center bg-card-bg p-4 mb-2.5 rounded-lg transition-transform hover:scale-[1.01] border-l-[5px] border-transparent ${rank === 0 ? 'border-l-[#FFD700] bg-gradient-to-r from-[#2d2d2d] to-[#3a3a20]' :
-          rank === 1 ? 'border-l-[#C0C0C0]' :
-            rank === 2 ? 'border-l-[#CD7F32]' : ''
-        }`}
+    <motion.li
+      layout
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      className={`mb-3 rounded-xl overflow-hidden transition-all ${getRankStyles(rank)} bg-bg-tertiary/30 backdrop-blur-sm border border-white/5`}
       onDoubleClick={() => onDoubleClick?.(user.name, user.totalCalories)}
     >
-      <div className="text-2xl font-bold w-10 text-center mr-4">#{rank + 1}</div>
-      <div className="flex-grow">
-        <div className="text-xl font-bold flex items-center gap-2">
-          {user.name}
-          {badge && <span className="text-xl" title={badge}>{badgeEmoji}</span>}
+      <div className="p-4 flex items-center gap-4">
+        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-bg-tertiary border border-white/5 shadow-inner">
+          {getRankIcon(rank)}
         </div>
-        {badge && <div className="text-xs text-gray-400">{badgeText}</div>}
 
-        {showHistory && user.logs && (
-          <>
+        <div className="flex-grow min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-lg font-bold text-white truncate">{user.name}</h3>
+            {badge && <span className="text-xs px-2 py-0.5 rounded-full bg-accent-primary/20 text-accent-primary border border-accent-primary/20">{badge}</span>}
+          </div>
+
+          {!showHistory && user.entries !== undefined && (
+            <div className="text-xs text-text-tertiary">{user.entries} entries</div>
+          )}
+
+          {showHistory && user.logs && (
             <button
-              className="bg-none border-none text-text-muted cursor-pointer text-sm p-1 underline hover:text-primary"
+              className="flex items-center gap-1 text-xs text-text-secondary hover:text-accent-primary transition-colors"
               onClick={() => setHistoryOpen(!historyOpen)}
             >
-              View History ({user.logs.length})
+              <History className="w-3 h-3" />
+              {historyOpen ? 'Hide History' : `View History (${user.logs.length})`}
+              {historyOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
-            <div className={`hidden mt-2.5 pt-2.5 border-t border-gray-700 w-full ${historyOpen ? '!block' : ''}`}>
+          )}
+        </div>
+
+        <div className="text-right">
+          <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+            {user.totalCalories.toLocaleString()}
+          </div>
+          <div className="text-xs text-text-tertiary font-medium uppercase tracking-wider">kcal</div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showHistory && historyOpen && user.logs && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-black/20 border-t border-white/5"
+          >
+            <div className="p-4 space-y-3">
               {user.logs.map((log, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm py-1 border-b border-gray-800">
-                  <span>{log.date.split(',')[0]} - {log.calories} cal</span>
+                <motion.div
+                  key={idx}
+                  initial={{ x: -10, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="flex justify-between items-center text-sm p-2 rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 rounded-full bg-accent-secondary/50"></div>
+                    <div>
+                      <div className="text-white font-medium">{log.calories} kcal</div>
+                      <div className="text-xs text-text-tertiary">{log.date.split(',')[0]}</div>
+                    </div>
+                  </div>
+
                   {log.proof && (
-                    <img
+                    <motion.img
+                      whileHover={{ scale: 1.1 }}
                       src={log.proof}
-                      className="w-10 h-10 object-cover rounded cursor-pointer border border-gray-600"
+                      className="w-12 h-12 object-cover rounded-lg cursor-pointer border border-white/10 shadow-sm"
                       onClick={() => onShowImage(log.proof)}
                       title="View Proof"
                       alt="Proof"
                     />
                   )}
-                </div>
+                </motion.div>
               ))}
             </div>
-          </>
+          </motion.div>
         )}
-
-        {!showHistory && user.entries !== undefined && (
-          <div className="text-xs text-gray-400">{user.entries} entries</div>
-        )}
-      </div>
-      <div className="text-xl text-accent font-bold">
-        {user.totalCalories}
-        <span className="text-sm text-text-muted font-normal"> kcal</span>
-      </div>
-    </li>
+      </AnimatePresence>
+    </motion.li>
   );
 }

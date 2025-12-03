@@ -1,4 +1,5 @@
 import { LeaderboardItem } from './LeaderboardItem';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function Leaderboard({
   users,
@@ -13,23 +14,35 @@ export function Leaderboard({
   return (
     <div>
       {headerContent}
-      <ul className="list-none">
-        {sortedUsers.length === 0 ? (
-          <li className="text-center text-gray-500 p-5">{emptyMessage}</li>
-        ) : (
-          sortedUsers.map((user, index) => (
-            <LeaderboardItem
-              key={user.name}
-              user={user}
-              rank={index}
-              totalUsers={sortedUsers.length}
-              onShowImage={onShowImage}
-              onDoubleClick={onItemDoubleClick}
-              showHistory={showHistory}
-            />
-          ))
-        )}
-      </ul>
+      <motion.ul
+        layout
+        className="list-none space-y-3"
+      >
+        <AnimatePresence mode='popLayout'>
+          {sortedUsers.length === 0 ? (
+            <motion.li
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-center text-text-tertiary p-12 bg-bg-tertiary/10 rounded-xl border border-dashed border-white/10"
+            >
+              {emptyMessage}
+            </motion.li>
+          ) : (
+            sortedUsers.map((user, index) => (
+              <LeaderboardItem
+                key={user.name}
+                user={user}
+                rank={index}
+                totalUsers={sortedUsers.length}
+                onShowImage={onShowImage}
+                onDoubleClick={onItemDoubleClick}
+                showHistory={showHistory}
+              />
+            ))
+          )}
+        </AnimatePresence>
+      </motion.ul>
     </div>
   );
 }

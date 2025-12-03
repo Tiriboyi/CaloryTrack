@@ -1,6 +1,8 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { submitEntry } from '../api';
 import { resizeImage } from '../utils';
+import { motion } from 'framer-motion';
+import { Plus, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 export const EntryForm = forwardRef(function EntryForm({ onSubmitSuccess }, ref) {
   const [name, setName] = useState('');
@@ -58,55 +60,88 @@ export const EntryForm = forwardRef(function EntryForm({ onSubmitSuccess }, ref)
   };
 
   return (
-    <section className="bg-card-bg rounded-2xl p-5 mb-5 shadow-md border border-input-border" ref={formRef}>
-      <h2 className="mb-4 text-secondary text-2xl font-bold">Add Daily Burn</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label htmlFor="username" className="block mb-1 text-accent font-bold">Name / Nickname</label>
-          <input
-            type="text"
-            id="username"
-            required
-            placeholder="e.g. Iron Mike"
-            maxLength={20}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2.5 rounded-lg border border-input-border bg-input-bg text-text text-base focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="glass-panel rounded-3xl p-8 mb-12 relative overflow-hidden"
+      ref={formRef}
+    >
+      <div className="absolute top-0 right-0 w-64 h-64 bg-accent-secondary/10 blur-[80px] -z-10 pointer-events-none" />
+
+      <h2 className="mb-8 text-2xl font-bold text-white flex items-center gap-3">
+        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-accent-primary/20 text-accent-primary">
+          <Plus className="w-5 h-5" />
+        </span>
+        Log Activity
+      </h2>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="group">
+            <label htmlFor="username" className="block mb-2 text-xs font-bold text-text-secondary uppercase tracking-wider">Name / Nickname</label>
+            <input
+              type="text"
+              id="username"
+              required
+              placeholder="e.g. Iron Mike"
+              maxLength={20}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-4 rounded-xl bg-bg-secondary/50 border border-border-color text-white placeholder-text-tertiary focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all"
+            />
+          </div>
+
+          <div className="group">
+            <label htmlFor="calories" className="block mb-2 text-xs font-bold text-text-secondary uppercase tracking-wider">Calories Burned</label>
+            <input
+              type="number"
+              id="calories"
+              required
+              placeholder="e.g. 500"
+              min={1}
+              max={10000}
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+              className="w-full p-4 rounded-xl bg-bg-secondary/50 border border-border-color text-white placeholder-text-tertiary focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all"
+            />
+          </div>
         </div>
-        <div className="mb-4">
-          <label htmlFor="calories" className="block mb-1 text-accent font-bold">Calories Burned</label>
-          <input
-            type="number"
-            id="calories"
-            required
-            placeholder="e.g. 500"
-            min={1}
-            max={10000}
-            value={calories}
-            onChange={(e) => setCalories(e.target.value)}
-            className="w-full p-2.5 rounded-lg border border-input-border bg-input-bg text-text text-base focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+
+        <div>
+          <label htmlFor="proof" className="block mb-2 text-xs font-bold text-text-secondary uppercase tracking-wider">Proof (Optional)</label>
+          <div className="relative">
+            <input
+              type="file"
+              id="proof"
+              accept="image/png, image/jpeg"
+              ref={fileInputRef}
+              className="w-full p-3 rounded-xl bg-bg-secondary/50 border border-border-color text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-accent-primary/10 file:text-accent-primary hover:file:bg-accent-primary/20 transition-all cursor-pointer"
+            />
+            <ImageIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary w-5 h-5 pointer-events-none" />
+          </div>
+          <p className="text-text-tertiary text-xs mt-2">Only visible to participants. Max 5MB.</p>
         </div>
-        <div className="mb-4">
-          <label htmlFor="proof" className="block mb-1 text-accent font-bold">Proof (Optional Screenshot)</label>
-          <input
-            type="file"
-            id="proof"
-            accept="image/png, image/jpeg"
-            ref={fileInputRef}
-            className="w-full p-2.5 rounded-lg border border-input-border bg-input-bg text-text text-base focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <p className="text-gray-400 text-xs mt-1">Only visible to participants. Max 5MB.</p>
-        </div>
-        <button
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           type="submit"
           disabled={isSubmitting}
-          className="bg-gradient-to-r from-primary to-secondary text-white border-none py-3 px-6 rounded-full text-lg cursor-pointer w-full font-bold transition-transform hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+          className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-accent-primary to-accent-secondary text-white font-bold text-lg shadow-lg shadow-accent-primary/25 hover:shadow-accent-primary/40 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
         >
-          {isSubmitting ? 'Submitting...' : '💪 Log It!'}
-        </button>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Submitting...
+            </>
+          ) : (
+            <>
+              Log Workout <span className="text-xl">💪</span>
+            </>
+          )}
+        </motion.button>
       </form>
-    </section>
+    </motion.section>
   );
 });

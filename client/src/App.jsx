@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Header, EntryForm, Leaderboard, Tabs, ImageModal } from './components';
-import { useTheme, useLeaderDuration } from './hooks';
+import { useLeaderDuration } from './hooks';
 import { fetchWeeklyData, fetchMonthlyData, fetchLifetimeData, resetData } from './api';
+import { motion } from 'framer-motion';
+import { Crown, RotateCcw } from 'lucide-react';
 
 function App() {
-  const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('weekly');
   const [weeklyData, setWeeklyData] = useState({ users: [], lastReset: Date.now() });
   const [monthlyData, setMonthlyData] = useState({ users: [], month: '' });
@@ -79,63 +80,76 @@ function App() {
   const renderLeaderStatus = () => {
     if (!leaderInfo.name) return null;
     return (
-      <div className="text-center text-text-muted text-sm mb-2.5 italic">
-        👑 <strong>{leaderInfo.name}</strong> has been leading for{' '}
-        <strong className="text-accent">{leaderInfo.duration}</strong>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-center gap-2 text-sm mb-6 p-3 rounded-xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 text-yellow-200"
+      >
+        <Crown className="w-4 h-4 text-yellow-400" fill="currentColor" />
+        <span>
+          <strong className="text-white">{leaderInfo.name}</strong> has been leading for{' '}
+          <strong className="text-yellow-400">{leaderInfo.duration}</strong>
+        </span>
+      </motion.div>
     );
   };
 
   return (
     <>
-      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <Header />
 
-      <main className="max-w-4xl mx-auto p-5">
+      <main className="max-w-3xl mx-auto px-5 pb-20">
         <EntryForm ref={entryFormRef} onSubmitSuccess={loadAllData} />
 
-        <section>
-          <h2 className="mb-4 text-accent flex justify-between items-center text-xl font-bold">
-            Leaderboards
-            <button className="w-auto text-xs px-2.5 py-1 bg-input-bg border border-input-border text-text rounded" onClick={handleReset}>
+        <section className="relative">
+          <div className="flex justify-between items-end mb-6">
+            <h2 className="text-2xl font-bold text-white">Leaderboards</h2>
+            <button
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text-tertiary hover:text-danger transition-colors bg-white/5 hover:bg-danger/10 rounded-lg border border-white/5 hover:border-danger/20"
+              onClick={handleReset}
+            >
+              <RotateCcw className="w-3 h-3" />
               Reset Demo
             </button>
-          </h2>
+          </div>
 
           <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-          <div className={`${activeTab === 'weekly' ? 'block' : 'hidden'}`}>
-            <Leaderboard
-              users={weeklyData.users}
-              emptyMessage="No entries yet. Be the first! 🏋️"
-              onShowImage={setModalImage}
-              onItemDoubleClick={handleItemDoubleClick}
-              showHistory={true}
-              headerContent={renderLeaderStatus()}
-            />
-          </div>
+          <div className="glass-panel rounded-3xl p-6 min-h-[400px]">
+            {activeTab === 'weekly' && (
+              <Leaderboard
+                users={weeklyData.users}
+                emptyMessage="No entries yet. Be the first! 🏋️"
+                onShowImage={setModalImage}
+                onItemDoubleClick={handleItemDoubleClick}
+                showHistory={true}
+                headerContent={renderLeaderStatus()}
+              />
+            )}
 
-          <div className={`${activeTab === 'monthly' ? 'block' : 'hidden'}`}>
-            <Leaderboard
-              users={monthlyData.users}
-              emptyMessage="No entries this month yet. 📅"
-              onShowImage={setModalImage}
-              showHistory={false}
-              headerContent={
-                <p className="text-center text-text-muted text-sm mb-2.5 italic">{monthlyData.month}</p>
-              }
-            />
-          </div>
+            {activeTab === 'monthly' && (
+              <Leaderboard
+                users={monthlyData.users}
+                emptyMessage="No entries this month yet. 📅"
+                onShowImage={setModalImage}
+                showHistory={false}
+                headerContent={
+                  <p className="text-center text-text-secondary text-sm mb-6 italic">{monthlyData.month}</p>
+                }
+              />
+            )}
 
-          <div className={`${activeTab === 'lifetime' ? 'block' : 'hidden'}`}>
-            <Leaderboard
-              users={lifetimeData.users}
-              emptyMessage="No lifetime data yet. 🏆"
-              onShowImage={setModalImage}
-              showHistory={false}
-              headerContent={
-                <p className="text-center text-text-muted text-sm mb-2.5 italic">All-time champions 🌟</p>
-              }
-            />
+            {activeTab === 'lifetime' && (
+              <Leaderboard
+                users={lifetimeData.users}
+                emptyMessage="No lifetime data yet. 🏆"
+                onShowImage={setModalImage}
+                showHistory={false}
+                headerContent={
+                  <p className="text-center text-text-secondary text-sm mb-6 italic">All-time champions 🌟</p>
+                }
+              />
+            )}
           </div>
         </section>
       </main>
