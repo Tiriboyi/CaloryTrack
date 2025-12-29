@@ -94,6 +94,13 @@ function initDb() {
             entries_count INTEGER NOT NULL DEFAULT 0
         )`);
 
+        // Monthly stats table (reset on first day of new month)
+        db.run(`CREATE TABLE IF NOT EXISTS monthly_stats (
+            name TEXT PRIMARY KEY,
+            total_calories INTEGER NOT NULL DEFAULT 0,
+            entries_count INTEGER NOT NULL DEFAULT 0
+        )`);
+
         // Meta table for last reset date
         db.run(`CREATE TABLE IF NOT EXISTS meta (
             key TEXT PRIMARY KEY,
@@ -107,6 +114,18 @@ function initDb() {
                 db.run("INSERT INTO meta (key, value) VALUES ('lastReset', ?)", [now]);
             }
         });
+
+        // Initialize lastMonthlyReset if not exists
+        db.get("SELECT value FROM meta WHERE key = 'lastMonthlyReset'", (err, row) => {
+            if (!row) {
+                const now = new Date();
+                const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+                db.run("INSERT INTO meta (key, value) VALUES ('lastMonthlyReset', ?)", [monthKey]);
+            }
+        });
+
+        // Check if monthly stats need to be reset (new month started)
+        setTimeout(() => checkAndResetMonthlyStats(), 1000);
 
         // Clean up old screenshots on startup
         setTimeout(() => cleanupOldScreenshots(), 2000); // Delay to ensure migration completes
@@ -176,6 +195,41 @@ function cleanupOldScreenshots() {
     });
 }
 
+// Check and reset monthly stats if a new month has started
+function checkAndResetMonthlyStats() {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+    
+    db.get("SELECT value FROM meta WHERE key = 'lastMonthlyReset'", (err, row) => {
+        if (err) {
+            console.error('Error checking monthly reset:', err.message);
+            return;
+        }
+        
+        const lastMonthKey = row ? row.value : null;
+        
+        if (lastMonthKey !== currentMonthKey) {
+            console.log(`New month detected. Resetting monthly stats (was: ${lastMonthKey}, now: ${currentMonthKey})`);
+            
+            db.serialize(() => {
+                db.run("DELETE FROM monthly_stats", (err) => {
+                    if (err) {
+                        console.error('Error resetting monthly stats:', err.message);
+                    } else {
+                        console.log('Monthly stats reset successfully');
+                    }
+                });
+                
+                if (lastMonthKey) {
+                    db.run("UPDATE meta SET value = ? WHERE key = 'lastMonthlyReset'", [currentMonthKey]);
+                } else {
+                    db.run("INSERT INTO meta (key, value) VALUES ('lastMonthlyReset', ?)", [currentMonthKey]);
+                }
+            });
+        }
+    });
+}
+
 // Run cleanup daily at midnight
 function scheduleScreenshotCleanup() {
     const now = new Date();
@@ -187,6 +241,8 @@ function scheduleScreenshotCleanup() {
     
     setTimeout(() => {
         cleanupOldScreenshots();
+        // Check if new month started
+        checkAndResetMonthlyStats();
         // Reschedule for next day
         scheduleScreenshotCleanup();
     }, timeUntilMidnight);
@@ -247,60 +303,23 @@ app.get('/api/data', (req, res) => {
 // Get monthly leaderboard
 app.get('/api/monthly', (req, res) => {
     const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthTimestamp = firstDayOfMonth.getTime();
+    
+    db.all(
+        "SELECT name, total_calories, entries_count FROM monthly_stats ORDER BY total_calories DESC",
+        (err, rows) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
 
-    // Check if timestamp column exists
-    db.all("PRAGMA table_info(logs)", (err, columns) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
+            const users = rows.map(row => ({
+                name: row.name,
+                totalCalories: row.total_calories,
+                entries: row.entries_count
+            }));
+
+            res.json({ users, month: now.toLocaleString('default', { month: 'long', year: 'numeric' }) });
         }
-
-        const hasTimestamp = columns && columns.some(col => col.name === 'timestamp');
-
-        if (hasTimestamp) {
-            // Use timestamp if available
-            db.all(
-                "SELECT name, SUM(calories) as total_calories, COUNT(*) as entries FROM logs WHERE timestamp >= ? GROUP BY name",
-                [monthTimestamp],
-                (err, rows) => {
-                    if (err) {
-                        return res.status(500).json({ error: err.message });
-                    }
-
-                    const users = rows.map(row => ({
-                        name: row.name,
-                        totalCalories: row.total_calories,
-                        entries: row.entries
-                    }));
-
-                    res.json({ users, month: now.toLocaleString('default', { month: 'long', year: 'numeric' }) });
-                }
-            );
-        } else {
-            // Fallback: filter by date string
-            db.all("SELECT name, calories, date FROM logs", (err, rows) => {
-                if (err) {
-                    return res.status(500).json({ error: err.message });
-                }
-
-                const usersMap = {};
-                rows.forEach(row => {
-                    const logDate = new Date(row.date);
-                    if (logDate >= firstDayOfMonth) {
-                        if (!usersMap[row.name]) {
-                            usersMap[row.name] = { name: row.name, totalCalories: 0, entries: 0 };
-                        }
-                        usersMap[row.name].totalCalories += row.calories;
-                        usersMap[row.name].entries += 1;
-                    }
-                });
-
-                const users = Object.values(usersMap);
-                res.json({ users, month: now.toLocaleString('default', { month: 'long', year: 'numeric' }) });
-            });
-        }
-    });
+    );
 });
 
 // Get lifetime leaderboard
@@ -389,8 +408,9 @@ app.post('/api/entry', (req, res) => {
     );
 });
 
-// Update lifetime statistics
+// Update lifetime and monthly statistics
 function updateLifetimeStats(name, calories, isNewEntry) {
+    // Update lifetime stats
     db.get(
         "SELECT total_calories, entries_count FROM lifetime_stats WHERE name = ?",
         [name],
@@ -412,6 +432,34 @@ function updateLifetimeStats(name, calories, isNewEntry) {
                 // Insert new stats
                 db.run(
                     "INSERT INTO lifetime_stats (name, total_calories, entries_count) VALUES (?, ?, ?)",
+                    [name, calories, 1]
+                );
+            }
+        }
+    );
+    
+    // Update monthly stats
+    db.get(
+        "SELECT total_calories, entries_count FROM monthly_stats WHERE name = ?",
+        [name],
+        (err, row) => {
+            if (err) {
+                console.error('Error updating monthly stats:', err.message);
+                return;
+            }
+
+            if (row) {
+                // Update existing stats
+                const newTotal = row.total_calories + calories;
+                const newCount = isNewEntry ? row.entries_count + 1 : row.entries_count;
+                db.run(
+                    "UPDATE monthly_stats SET total_calories = ?, entries_count = ? WHERE name = ?",
+                    [newTotal, newCount, name]
+                );
+            } else {
+                // Insert new stats
+                db.run(
+                    "INSERT INTO monthly_stats (name, total_calories, entries_count) VALUES (?, ?, ?)",
                     [name, calories, 1]
                 );
             }
